@@ -127,12 +127,14 @@ sizeOfVector = {#sizeof vector_t #}
          IGRAPH_VCONN_NEI_IGNORE,
          IGRAPH_VCONN_NEI_NEGATIVE }
   deriving (Eq, Show) #}
+-}
 
-{#enum igraph_spincomm_update_t as
-  { IGRAPH_SPINCOMM_UPDATE_SIMPLE=0,
-         IGRAPH_SPINCOMM_UPDATE_CONFIG }
-  deriving (Eq, Show) #}
+{#enum igraph_spincomm_update_t as SpincommUpdate
+    { IGRAPH_SPINCOMM_UPDATE_SIMPLE as SpincommUpdateSimple
+    , IGRAPH_SPINCOMM_UPDATE_CONFIG as SpincommUpdateConfig
+    } deriving (Eq, Show) #}
 
+{-
 {#enum igraph_lazy_adlist_simplify_t as
   { IGRAPH_DONT_SIMPLIFY=0,
          IGRAPH_SIMPLIFY }
@@ -144,12 +146,12 @@ sizeOfVector = {#sizeof vector_t #}
     IGRAPH_TRANSITIVITY_ZERO as TransitivityZero}
   deriving (Eq, Show) #}
 
-{-
-{#enum igraph_spinglass_implementation_t as
-  { IGRAPH_SPINCOMM_IMP_ORIG=0,
-         IGRAPH_SPINCOMM_IMP_NEG }
-  deriving (Eq, Show) #}
+{#enum igraph_spinglass_implementation_t as SpinglassImplementation
+    { IGRAPH_SPINCOMM_IMP_ORIG as SpincommImpOrig
+    , IGRAPH_SPINCOMM_IMP_NEG as SpincommImpNeg
+    } deriving (Eq, Show) #}
 
+{-
 {#enum igraph_community_comparison_t as
   { IGRAPH_COMMCMP_VI = 0,
                IGRAPH_COMMCMP_NMI,

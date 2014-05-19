@@ -226,7 +226,7 @@ int get_shortest_paths(const igraph_t *graph,
                 igraph_integer_t from, const igraph_vs_t *to, 
                 igraph_neimode_t mode)
 {
-    return igraph_get_shortest_paths(graph, vertices, edges, from, *to, mode);
+    return igraph_get_shortest_paths(graph, vertices, edges, from, *to, mode, NULL, NULL);
 }
 
 int get_shortest_paths_dijkstra(const igraph_t *graph, 
@@ -235,7 +235,7 @@ int get_shortest_paths_dijkstra(const igraph_t *graph,
                 igraph_integer_t from, const igraph_vs_t *to, 
                 igraph_vector_t *weights, igraph_neimode_t mode)
 {
-    return igraph_get_shortest_paths_dijkstra(graph, vertices, edges, from, *to, weights, mode);
+    return igraph_get_shortest_paths_dijkstra(graph, vertices, edges, from, *to, weights, mode, NULL, NULL);
 }
 
 int get_all_shortest_paths(const igraph_t *graph,
@@ -309,13 +309,13 @@ int subgraph_edges(const igraph_t *graph, igraph_t *res,
 
 /*******************************************************************************
  *
- * 13.5 Centrality Measures
+ * 13.6 Centrality Measures
  *
  */
 
 int closeness(const igraph_t *graph, igraph_vector_t *res, const igraph_vs_t* vids, igraph_neimode_t mode, const igraph_vector_t *weights)
 {
-    return igraph_closeness(graph, res, *vids, mode, weights);
+    return igraph_closeness(graph, res, *vids, mode, weights, 1);
 }
 
 int betweenness(const igraph_t *graph, igraph_vector_t *res, const igraph_vs_t* vids, igraph_bool_t directed, const igraph_vector_t* weights, igraph_bool_t nobigint)
@@ -329,7 +329,7 @@ int pagerank(const igraph_t *graph, igraph_vector_t *vector,
         const igraph_vector_t *weights,
         igraph_arpack_options_t *options)
 {
-    return igraph_pagerank(graph, vector, value, *vids, directed, damping, weights, options);
+    return igraph_pagerank(graph, IGRAPH_PAGERANK_ALGO_ARPACK, vector, value, *vids, directed, damping, weights, options);
 }
 
 int personalized_pagerank(const igraph_t *graph, igraph_vector_t *vector,
@@ -339,7 +339,7 @@ int personalized_pagerank(const igraph_t *graph, igraph_vector_t *vector,
         const igraph_vector_t *weights,
         igraph_arpack_options_t *options)
 {
-    return igraph_personalized_pagerank(graph, vector, value, *vids, directed, damping, reset, weights, options);
+    return igraph_personalized_pagerank(graph, IGRAPH_PAGERANK_ALGO_ARPACK, vector, value, *vids, directed, damping, reset, weights, options);
 }
 
 int personalized_pagerank_vs(const igraph_t *graph, igraph_vector_t *vector,
@@ -349,7 +349,7 @@ int personalized_pagerank_vs(const igraph_t *graph, igraph_vector_t *vector,
         const igraph_vector_t *weights,
         igraph_arpack_options_t *options)
 {
-    return igraph_personalized_pagerank_vs(graph, vector, value, *vids, directed, damping, *reset_vids, weights, options);
+    return igraph_personalized_pagerank_vs(graph, IGRAPH_PAGERANK_ALGO_ARPACK, vector, value, *vids, directed, damping, *reset_vids, weights, options);
 }
 
 int constraint(const igraph_t *graph, igraph_vector_t *res,
@@ -383,7 +383,7 @@ int closeness_estimate(const igraph_t *graph, igraph_vector_t *res,
                        igraph_real_t cutoff,
                        const igraph_vector_t *weights)
 {
-    return igraph_closeness_estimate(graph, res, *vids, mode, cutoff, weights);
+    return igraph_closeness_estimate(graph, res, *vids, mode, cutoff, weights, 1);
 }
 
 int betweenness_estimate(const igraph_t *graph,

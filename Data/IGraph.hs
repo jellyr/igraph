@@ -151,6 +151,9 @@ module Data.IGraph
     -- ** 13\.17 Maximum cardinality search, graph decomposition, chordal graphs
   , maximumCardinalitySearch
   , isChordal
+
+    -- ** 15\.1 Cliques
+  , maximalCliques
   ) where
 
 import Data.IGraph.Internal
@@ -642,14 +645,8 @@ averagePathLength :: Graph d a
                               -- this is that this is always longer than the
                               -- longest possible geodesic in a graph.)
                   -> Double
-averagePathLength g b1 b2 = unsafePerformIO $ do
-  alloca $ \dp -> do
-    _e <- withGraph g $ \gp ->
-            c_igraph_average_path_length 
-              gp
-              dp
-              b1
-              b2
+averagePathLength g b1 b2 = unsafePerformIO $ alloca $ \dp -> do
+    _e <- withGraph g $ \gp -> c_igraph_average_path_length gp dp b1 b2
     realToFrac `fmap` peek dp
 
 foreign import ccall "igraph_path_length_hist"
@@ -696,26 +693,18 @@ diameter :: Graph d a
          -> Bool
          -> (Int, (a,a), [a]) -- ^ the diameter of the graph, the starting/end
                               -- vertices and the longest path
-diameter g b1 b2 = unsafePerformIO $ do
-  alloca $ \ip -> do
-    alloca $ \fip -> do
-      alloca $ \tip -> do
-        v  <- newVector 0
-        _e <- withGraph g $ \gp ->
-              withVector v $ \vp ->
-                c_igraph_diameter
-                  gp
-                  ip
-                  fip
-                  tip
-                  vp
-                  b1
-                  b2
-        d  <- fromIntegral `fmap` peek ip
-        fi <- fromIntegral `fmap` peek fip
-        ti <- fromIntegral `fmap` peek tip
-        p  <- vectorToVertices g v
-        return (d, (idToNode'' g fi, idToNode'' g ti), p)
+diameter g b1 b2 = unsafePerformIO $
+    alloca $ \ip ->
+    alloca $ \fip ->
+    alloca $ \tip -> do v  <- newVector 0
+                        _e <- withGraph g $ \gp ->
+                              withVector v $ \vp ->
+                              c_igraph_diameter gp ip fip tip vp b1 b2
+                        d  <- fromIntegral `fmap` peek ip
+                        fi <- fromIntegral `fmap` peek fip
+                        ti <- fromIntegral `fmap` peek tip
+                        p  <- vectorToVertices g v
+                        return (d, (idToNode'' g fi, idToNode'' g ti), p)
 
 foreign import ccall "igraph_diameter_dijkstra"
   c_igraph_diameter_dijkstra
@@ -771,7 +760,7 @@ foreign import ccall "igraph_girth"
 -- was done by Keith Briggs, thanks Keith.
 girth :: Graph d a
       -> (Int, [a])  -- ^ girth with the shortest circle
-girth g = unsafePerformIO $ do
+girth g = unsafePerformIO $ 
   alloca $ \ip -> do
     v <- newVector 0
     _e <- withGraph g $ \gp ->
@@ -817,7 +806,7 @@ foreign import ccall "igraph_radius"
 -- The radius of a graph is the defined as the minimum eccentricity of its
 -- vertices, see igraph_eccentricity().
 radius :: Graph d a -> Int
-radius g = unsafePerformIO $ do
+radius g = unsafePerformIO $ 
   alloca $ \dp -> do
     _e <- withGraph g $ \gp ->
             c_igraph_radius
@@ -892,7 +881,7 @@ foreign import ccall "induced_subgraph"
 -- new graph. As the vertex ids in a graph always start with zero, this function
 -- very likely needs to reassign ids to the vertices.
 inducedSubgraph :: Graph d a -> VertexSelector a -> SubgraphImplementation -> Graph d a
-inducedSubgraph g vs i = unsafePerformIO $ do
+inducedSubgraph g vs i = unsafePerformIO $ 
   withGraph g $ \gp ->
     withVs vs g $ \vsp ->
     withGraph (emptyWithCtxt g) $ \gp' -> do
@@ -918,7 +907,7 @@ foreign import ccall "subgraph_edges"
 -- graph. As the vertex ids in a graph always start with zero, this function
 -- very likely needs to reassign ids to the vertices.
 subgraphEdges :: Graph d a -> EdgeSelector d a -> Graph d a
-subgraphEdges g es = unsafePerformIO $ do
+subgraphEdges g es = unsafePerformIO $
   withGraph g $ \gp ->
     withEs es g $ \esp ->
     withGraph (emptyWithCtxt g) $ \gp' -> do
@@ -1822,7 +1811,7 @@ centralizationDegreeTMax egi b = unsafePerformIO $
     return ( realToFrac r )
  where
   withGraph' (Left g)  = withGraph g
-  withGraph' (Right _) = (\f -> f nullPtr)
+  withGraph' (Right _) = \f -> f nullPtr
   i       = either (const 0) fromIntegral egi
   neimode = either getNeiMode (const (fromIntegral (fromEnum Out))) egi
 
@@ -1860,7 +1849,7 @@ centralizationBetweennessTMax egi = unsafePerformIO $
     return ( realToFrac r )
  where
   withGraph' (Left g)  = withGraph g
-  withGraph' (Right _) = (\f -> f nullPtr)
+  withGraph' (Right _) = \f -> f nullPtr
   i        = either (const 0) fromIntegral egi
   directed = either (\g@(G _) -> isDirected g) (const True) egi
 
@@ -1897,7 +1886,7 @@ centralizationClosenessTMax egi = unsafePerformIO $
     return ( realToFrac r )
  where
   withGraph' (Left g)  = withGraph g
-  withGraph' (Right _) = (\f -> f nullPtr)
+  withGraph' (Right _) = \f -> f nullPtr
   i       = either (const 0) fromIntegral egi
   neimode = either getNeiMode (const (fromIntegral (fromEnum Out))) egi
 
@@ -1944,7 +1933,7 @@ centralizationEigenvectorCentralityTMax egi dir sc = unsafePerformIO $ alloca $ 
   realToFrac `fmap` peek dp
  where
   withGraph' (Left g)  = withGraph g
-  withGraph' (Right _) = (\f -> f nullPtr)
+  withGraph' (Right _) = \f -> f nullPtr
   i = either (const 0) fromIntegral egi
 
 --------------------------------------------------------------------------------
@@ -2596,7 +2585,7 @@ assortativityNominal
   -> Double
 assortativityNominal g b = unsafePerformIO $ alloca $ \dp -> do
   let all_types = map fst $ nodes g
-      types     = map fst $ zip [(0 :: Int)..] (nub all_types)
+      types     = zipWith (curry fst) [(0 :: Int)..] $ nub all_types
   v  <- listToVector types
   _e <- withGraph g $ \gp ->
         withVector v $ \vp ->
@@ -2638,8 +2627,8 @@ assortativity
   -> Double
 assortativity g b = unsafePerformIO $ alloca $ \dp -> do
   let (all_types_inc, all_types_out) = unzip [ (i,o) | (i,o,_) <- nodes g ]
-      types_inc = map fst $ zip [(0 :: Int)..] (nub all_types_inc)
-      types_out = map fst $ zip [(0 :: Int)..] (nub all_types_out)
+      types_inc = zipWith (curry fst) [(0 :: Int)..] $ nub all_types_inc
+      types_out = zipWith (curry fst) [(0 :: Int)..] $ nub all_types_out
   v1 <- listToVector types_inc
   v2 <- listToVector types_out
   _e <- withGraph g $ \gp ->
@@ -2841,9 +2830,8 @@ foreign import ccall "igraph_is_chordal"
 -- A graph is chordal if each of its cycles of four or more nodes has a chord,
 -- which is an edge joining two nodes that are not adjacent in the cycle. An
 -- equivalent definition is that any chordless cycles have at most three nodes.
-isChordal
-  :: Graph d a
-  -> (Bool, [Edge d a]) -- ^ returns a list of fill-in edges to make the graph chordal
+isChordal :: Graph d a
+          -> (Bool, [Edge d a]) -- ^ returns a list of fill-in edges to make the graph chordal
 isChordal g@(G _) = unsafePerformIO $ alloca $ \bp -> do
   v  <- newVector 0
   _e <- withGraph g $ \gp ->
@@ -2857,10 +2845,12 @@ isChordal g@(G _) = unsafePerformIO $ alloca $ \bp -> do
             nullPtr
   b  <- peek bp
   as <- vectorToVertices g v
-  let mkEdges (f:t:r) = (toEdge f t : mkEdges r)
-      mkEdges []      = []
-      mkEdges [_]     = error "Error in `isChordal': Invalid number of arguments to `mkEdges'"
   return (b, mkEdges as)
+  where
+    mkEdges (f:t:r) = toEdge f t : mkEdges r
+    mkEdges []      = []
+    mkEdges _       = error "Error in `isChordal': Invalid number of arguments to `mkEdges'"
+    
 
 
 --------------------------------------------------------------------------------
@@ -2875,3 +2865,20 @@ isChordal g@(G _) = unsafePerformIO $ alloca $ \bp -> do
 --------------------------------------------------------------------------------
 -- 13.21 Other Operations
 
+--------------------------------------------------------------------------------
+-- 15.1 Cliques
+
+foreign import ccall "igraph_maximal_cliques"
+    c_igraph_maximal_cliques :: GraphPtr
+                             -> VectorPtrPtr
+                             -> CInt
+                             -> CInt
+                             -> IO CInt
+
+maximalCliques :: Graph d a -> (Int, Int) -> [[a]]
+maximalCliques g (min', max') = unsafePerformIO $ do
+    vp <- newVectorPtr 0
+    _ <- withGraph g $ \gp -> 
+         withVectorPtr vp $ \vpp -> 
+         c_igraph_maximal_cliques gp vpp (fromIntegral min') (fromIntegral max')
+    vectorPtrToVertices g vp

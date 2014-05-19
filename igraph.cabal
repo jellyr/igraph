@@ -41,7 +41,8 @@ Library
   Build-Tools:
     c2hs
   Exposed-modules:
-    Data.IGraph
+      Data.IGraph
+    , Data.IGraph.Community
   Other-modules:
     Data.IGraph.Internal
     Data.IGraph.Internal.Constants
