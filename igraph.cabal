@@ -1,15 +1,14 @@
 Name:                 igraph
-Version:              0.1
+Version:              0.2.0.0
 Synopsis:             Bindings to the igraph C library.
-Description:          Complete bindings to all functions about graph properties
-                      of the igraph C library. Requires igraph 0.6.
+Description:          bindings to the igraph C library. Requires igraph 0.7.
 License:              BSD3
 License-file:         LICENSE
-Author:               Nils Schweinsberg, George Giorgidze
-Maintainer:           Giorgidze@Gmail.com
+Author:               Nils Schweinsberg, George Giorgidze, Kai Zhang
+Maintainer:           kai@kzhang.org
 Category:             Data Structures, Graphs
 Build-type:           Simple
-Cabal-version:        >=1.6
+Cabal-version:        >=1.8
 
 source-repository head
   type:               git
@@ -24,7 +23,8 @@ Library
     base >= 4.3.1.0 && < 5,
     containers,
     unordered-containers,
-    hashable
+    hashable,
+    vector
   Extensions:
     ForeignFunctionInterface,
     EmptyDataDecls,
@@ -43,6 +43,8 @@ Library
   Exposed-modules:
       Data.IGraph
     , Data.IGraph.Community
+    , Data.IGraph.Layout
+    , Data.IGraph.Parser
   Other-modules:
     Data.IGraph.Internal
     Data.IGraph.Internal.Constants
