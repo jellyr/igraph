@@ -42,6 +42,7 @@ Library
     c2hs
   Exposed-modules:
       Data.IGraph
+    , Data.IGraph.Structure
     , Data.IGraph.Community
     , Data.IGraph.Layout
     , Data.IGraph.Parser

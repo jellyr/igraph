@@ -19,19 +19,17 @@ import Data.IGraph.Types
 import Data.IGraph.Internal.Constants
 
 nodeToId'' :: Graph d a -> a -> Int
-nodeToId'' (G g) n = case Map.lookup n (graphNodeToId g) of
-  Just i  -> i
-  Nothing -> error "nodeToId': Graph node/ID mismatch."
+nodeToId'' (G g) n = fromMaybe (error "nodeToId': Graph node/ID mismatch.")
+                   $ Map.lookup n $ graphNodeToId g
 
 idToNode'' :: Graph d a -> Int -> a
-idToNode'' (G g) i = case Map.lookup i (graphIdToNode g) of
-  Just n  -> n
-  Nothing -> error ("idToNode': Graph ID/node mismatch, ID = " ++ show i)
+idToNode'' (G g) i = fromMaybe (error $ "idToNode': Graph ID/node mismatch, ID = " ++ show i)
+                   $ Map.lookup i $ graphIdToNode g
 
 edgeToEdgeId :: Graph d a -> Edge d a -> Int
 edgeToEdgeId g@(G _) e = case elemIndex e (edges g) of
   Just i -> i
-  _      -> error ("edgeToEdgeId: Edge not in graph.")
+  _      -> error "edgeToEdgeId: Edge not in graph."
 
 edgeIdToEdge :: Graph d a -> Int -> Edge d a
 edgeIdToEdge g i
@@ -105,7 +103,7 @@ subgraphFromPtr g@(G _) gp' = do
        else subg
  where
   fromListWithCtxt :: Graph d a -> [(a,a)] -> Graph d a
-  fromListWithCtxt (G _) l = fromList l
+  fromListWithCtxt (G _) = fromList
 
   eqOnEdgeNodes :: Eq a => Graph d a -> Edge d a -> Edge d a -> Bool
   eqOnEdgeNodes (G _) e1 e2 =
@@ -315,8 +313,7 @@ withEs' (EsF fp) = withForeignPtr fp
 -- ARPACK options
 
 withArpack :: Graph d a -> (ArpackPtr -> IO res) -> IO res
-withArpack (G Graph{ graphArpackOptions = fp }) f =
-  withForeignPtr fp f
+withArpack (G Graph{ graphArpackOptions = fp }) = withForeignPtr fp
 
 
 --------------------------------------------------------------------------------
@@ -517,9 +514,8 @@ edgesToVector :: Graph d a -> IO Vector
 edgesToVector g@(G g') =
   listToVector $ foldr (\e r -> toId (edgeFrom e) : toId (edgeTo e) : r) [] (edges g)
  where
-  toId n = case Map.lookup n (graphNodeToId g') of
-                Just i  -> i
-                Nothing -> error "edgesToVector: Graph node/ID mismatch."
+  toId n = fromMaybe (error "edgesToVector: Graph node/ID mismatch.")
+         $ Map.lookup n (graphNodeToId g')
 
 vectorToEdges :: Graph d a -> Vector -> IO [Edge d a]
 vectorToEdges g@(G _) v = do
@@ -605,7 +601,7 @@ getWeight :: Edge (Weighted d) a -> Int
 getWeight (W _ w) = w
 
 toEdgeWeighted :: E d a => a -> a -> Int -> Edge (Weighted d) a
-toEdgeWeighted a b w = W (toEdge a b) w
+toEdgeWeighted a b = W (toEdge a b)
 
 emptyGraph :: E d a => Graph d a
 emptyGraph = buildForeignGraph $ G (Graph 0 0 Map.empty Map.empty Set.empty undefined undefined Out)
@@ -695,8 +691,10 @@ deleteEdge e (G g)
         delT = if null (neighbours t g') then deleteNode t else id
      in delT . delF $ g'
 
+-- | return the nodes ordered by their id
 nodes :: Graph d a -> [a]
-nodes (G g) = Map.keys $ graphNodeToId g
+nodes (G g) = map (fromJust.flip Map.lookup (graphIdToNode g))
+                  [0 .. graphNodeNumber g - 1]
 
 edges :: Graph d a -> [Edge d a]
 edges (G g) = F.toList $ graphEdges g

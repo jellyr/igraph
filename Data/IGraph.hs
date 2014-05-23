@@ -1142,7 +1142,7 @@ foreign import ccall "betweenness"
 -- The betweenness centrality of a vertex is the number of geodesics going
 -- through it. If there are more than one geodesic between two vertices, the
 -- value of these geodesics are weighted by one over the number of geodesics.
-betweenness :: Ord a => Graph d a -> VertexSelector a -> Map a Double
+betweenness :: Graph d a -> VertexSelector a -> [(a, Double)]
 betweenness g vs = unsafePerformIO $ do
   v  <- newVector 0
   _e <- withGraph g $ \gp ->
@@ -1157,7 +1157,7 @@ betweenness g vs = unsafePerformIO $ do
             wp
             True -- should be OK for all graphs
   scores <- vectorToList v
-  return $ M.fromList $ zip (selectedVertices g vs) scores
+  return $ zip (selectedVertices g vs) scores
 
 foreign import ccall "igraph_edge_betweenness"
   c_igraph_edge_betweenness :: GraphPtr -> VectorPtr -> Bool -> VectorPtr -> IO CInt

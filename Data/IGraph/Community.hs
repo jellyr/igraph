@@ -1,9 +1,11 @@
+{-# LANGUAGE BangPatterns #-}
 -- | Haskell bindings to the igraph C library.
 -- Chapter 22. Detecting Community Structure
 --
 
 module Data.IGraph.Community
-    ( communityOptimalModularity
+    ( modularity
+    , communityOptimalModularity
     , communitySpinglass
     , communityLeadingEigenvector
     ) where
@@ -16,6 +18,7 @@ import Foreign.C
 import System.IO.Unsafe (unsafePerformIO)
 import Data.List
 import Data.Function
+import Control.Monad (unless)
 
 groupByMembership :: Ord b => [a] -> [b] -> [[a]]
 groupByMembership xs = map (fst . unzip) . groupBy ((==) `on` snd)
@@ -27,13 +30,40 @@ fromMembership :: Ord b => Graph d a -> [b] -> [[a]]
 fromMembership g = (map.map) (idToNode'' g).groupByMembership [0..]
 {-# INLINE fromMembership #-}
 
--- | 1.2. igraph_community_optimal_modularity — Calculate the community structure with the highest modularity value
+toMembership :: Graph d a -> [[a]] -> IO Vector
+{-# INLINE toMembership #-}
+toMembership g communities = listToVector.snd.unzip.sort $ loop (0::Int) communities
+  where
+    loop !n (x:xs) = zip (map (nodeToId'' g) x) (repeat n) ++ loop (n+1) xs
+    loop _ _ = []
+    
+-- | 1. Common functions related to community structure
 --
+-- | 1.1. igraph_modularity — Calculate the modularity of a graph with respect to some vertex types
+modularity :: Graph d a -> [[a]] -> Double
+modularity g communities = unsafePerformIO $ withGraph g $ \gp -> do
+    membership <- toMembership g communities
+    withVector membership $ \vp ->
+        withOptionalWeights g $ \wp ->
+        alloca $ \mp -> do
+            e <- c_igraph_modularity gp vp mp wp
+            unless (e == 1) $ error "error"
+            peek mp
+
+foreign import ccall "igraph_modularity"
+    c_igraph_modularity :: GraphPtr
+                        -> VectorPtr
+                        -> Ptr Double
+                        -> VectorPtr
+                        -> IO CInt
+
+-- | 1.2. igraph_community_optimal_modularity — Calculate the community structure with the highest modularity value
 communityOptimalModularity :: Graph d a -> [[a]]
 communityOptimalModularity g = unsafePerformIO $ withGraph g $ \gp -> do
     membership <- newVector 0
     withVector membership $ \memberp -> do
-        _ <- c_igraph_community_optimal_modularity gp nullPtr memberp nullPtr
+        e <- c_igraph_community_optimal_modularity gp nullPtr memberp nullPtr
+        unless (e == 1) $ error "error"
         memberList <- vectorToList membership
         return.fromMembership g $ memberList
 
@@ -54,40 +84,43 @@ communitySpinglass :: Graph d a
                    -> Double
                    -> [[a]]
 communitySpinglass g starttemp stoptemp coolfact gamma = unsafePerformIO $
-    alloca $ \modularity -> 
-    alloca $ \temperature ->
-    withGraph g $ \gp -> do
+    withGraph g $ \gp ->
+    withOptionalWeights g $ \wp -> do
         membership <- newVector 0
-        _ <- withVector membership $ \membership' -> c_igraph_community_spinglass
-            gp nullPtr modularity temperature membership' nullPtr spins
-            parupdate (realToFrac starttemp) (realToFrac stoptemp) 
-            (realToFrac coolfact) updateRule (realToFrac gamma) implementation
-            gamma_minus
+        withVector membership $ \membership' -> do
+            e <- c_igraph_community_spinglass gp wp nullPtr nullPtr membership'
+                                              nullPtr spins parupdate
+                                              (realToFrac starttemp)
+                                              (realToFrac stoptemp)
+                                              (realToFrac coolfact) updateRule
+                                              (realToFrac gamma) implementation
+                                              gamma_minus
+            unless (e == 1) $ error "error"
         memberList <- vectorToList membership
         return.fromMembership g $ memberList
   where
     spins = 25
-    parupdate = 0
+    parupdate = False
     gamma_minus = 0
     implementation = fromIntegral.fromEnum $ SpincommImpOrig
     updateRule = fromIntegral.fromEnum $ SpincommUpdateConfig
 
 foreign import ccall "igraph_community_spinglass"
-    c_igraph_community_spinglass :: GraphPtr
-                                 -> VectorPtr
-                                 -> Ptr CDouble
-                                 -> Ptr CDouble
-                                 -> VectorPtr
-                                 -> VectorPtr
-                                 -> CInt
-                                 -> CInt
-                                 -> CDouble
-                                 -> CDouble
-                                 -> CDouble
-                                 -> CInt
-                                 -> CDouble
-                                 -> CInt
-                                 -> CDouble
+    c_igraph_community_spinglass :: GraphPtr     -- graph
+                                 -> VectorPtr    -- weights
+                                 -> Ptr CDouble  -- modularity
+                                 -> Ptr CDouble  -- temperature
+                                 -> VectorPtr    -- membership
+                                 -> VectorPtr    -- csize
+                                 -> CInt         -- spins
+                                 -> Bool         -- parallel update
+                                 -> CDouble      -- start temperature
+                                 -> CDouble      -- stop temperature
+                                 -> CDouble      -- cool factor
+                                 -> CInt         -- update_rule
+                                 -> CDouble      -- gamma
+                                 -> CInt         -- implementation
+                                 -> CDouble      -- gamma minus
                                  -> IO CInt
 
 -- | 3. Community structure based on eigenvectors of matrices
