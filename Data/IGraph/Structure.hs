@@ -4,18 +4,19 @@
 
 module Data.IGraph.Structure
     ( eigenvectorCentrality
+    , kCore
     ) where
 
+import Data.IGraph hiding (eigenvectorCentrality)
 import Data.IGraph.Internal
-import Data.IGraph.Internal.Constants
 import Data.IGraph.Types
 import Foreign hiding (unsafePerformIO)
 import Foreign.C
 import System.IO.Unsafe (unsafePerformIO)
 import Control.Monad (unless)
 
--- | 1.2. igraph_community_optimal_modularity — Calculate the community structure with the highest modularity value
---
+-- | 6. Centrality Measures
+-- | 6.13. igraph_eigenvector_centrality — Eigenvector centrality of the vertices
 eigenvectorCentrality :: Graph d a -> Bool -> (Double, [(a, Double)])
 eigenvectorCentrality g s = unsafePerformIO $ alloca $ \dp -> do
     v <- newVector 0
@@ -24,10 +25,10 @@ eigenvectorCentrality g s = unsafePerformIO $ alloca $ \dp -> do
          withOptionalWeights g $ \wp ->
          withArpack g $ \ap ->
              c_igraph_eigenvector_centrality gp vp dp True s wp ap
-    unless (e /= 1) $ error "error"
+    unless (e == 0) $ error "error"
     res <- peek dp
-    lis <- vectorToList v
-    return (realToFrac res, zip (nodes g) lis)
+    lst <- vectorToList v
+    return (realToFrac res, zip (nodes g) lst)
 
 
 foreign import ccall "igraph_eigenvector_centrality"
@@ -39,3 +40,20 @@ foreign import ccall "igraph_eigenvector_centrality"
                                     -> VectorPtr
                                     -> ArpackPtr
                                     -> IO CInt
+
+-- | 16. K-Cores
+-- | 16.1. igraph_coreness — Finding the coreness of the vertices in a network.
+kCore :: Graph d a -> Int -> [[a]]
+kCore g k = unsafePerformIO $ withGraph g $ \gp -> do
+    v <- newVector 0
+    withVector v $ \vp -> do
+        e <- c_igraph_coreness gp vp (getNeiMode g)
+        unless (e == 0) $ error "error"
+    lst <- vectorToList v
+    let vs = fst.unzip.filter ((>=(fromIntegral k)).snd) $ zip (nodes g) lst
+        g' = inducedSubgraph g (VsList vs) CreateFromScratch
+        cs = decompose g' Weak (-1) 1
+    return $ map nodes cs
+
+foreign import ccall "igraph_coreness"
+    c_igraph_coreness :: GraphPtr -> VectorPtr -> CInt -> IO CInt

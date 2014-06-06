@@ -169,6 +169,7 @@ import Data.List (nub)
 import Foreign hiding (unsafePerformIO)
 import Foreign.C
 import System.IO.Unsafe (unsafePerformIO)
+import Control.Monad
 
 
 --------------------------------------------------------------------------------
@@ -2878,7 +2879,9 @@ foreign import ccall "igraph_maximal_cliques"
 maximalCliques :: Graph d a -> (Int, Int) -> [[a]]
 maximalCliques g (min', max') = unsafePerformIO $ do
     vp <- newVectorPtr 0
-    _ <- withGraph g $ \gp -> 
+    e <- withGraph g $ \gp -> 
          withVectorPtr vp $ \vpp -> 
          c_igraph_maximal_cliques gp vpp (fromIntegral min') (fromIntegral max')
+    unless (e == 0) $ error "maximalCliques: error occurs, aborted!"
+
     vectorPtrToVertices g vp

@@ -693,8 +693,7 @@ deleteEdge e (G g)
 
 -- | return the nodes ordered by their id
 nodes :: Graph d a -> [a]
-nodes (G g) = map (fromJust.flip Map.lookup (graphIdToNode g))
-                  [0 .. graphNodeNumber g - 1]
+nodes (G g) = Map.elems.graphIdToNode $ g
 
 edges :: Graph d a -> [Edge d a]
 edges (G g) = F.toList $ graphEdges g

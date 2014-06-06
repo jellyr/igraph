@@ -47,7 +47,7 @@ modularity g communities = unsafePerformIO $ withGraph g $ \gp -> do
         withOptionalWeights g $ \wp ->
         alloca $ \mp -> do
             e <- c_igraph_modularity gp vp mp wp
-            unless (e == 1) $ error "error"
+            unless (e == 0) $ error "error"
             peek mp
 
 foreign import ccall "igraph_modularity"
@@ -63,7 +63,7 @@ communityOptimalModularity g = unsafePerformIO $ withGraph g $ \gp -> do
     membership <- newVector 0
     withVector membership $ \memberp -> do
         e <- c_igraph_community_optimal_modularity gp nullPtr memberp nullPtr
-        unless (e == 1) $ error "error"
+        unless (e == 0) $ error "error"
         memberList <- vectorToList membership
         return.fromMembership g $ memberList
 
@@ -95,7 +95,7 @@ communitySpinglass g starttemp stoptemp coolfact gamma = unsafePerformIO $
                                               (realToFrac coolfact) updateRule
                                               (realToFrac gamma) implementation
                                               gamma_minus
-            unless (e == 1) $ error "error"
+            unless (e == 0) $ error "error"
         memberList <- vectorToList membership
         return.fromMembership g $ memberList
   where
@@ -133,8 +133,14 @@ communityLeadingEigenvector :: Graph d a
 communityLeadingEigenvector g step = unsafePerformIO $ withGraph g $ \ gp -> do
     membership <- newVector 0
     withVector membership $ \membership' -> do
-        _ <- withArpack g $ \ap ->
-            c_igraph_community_leading_eigenvector gp nullPtr nullPtr membership' (fromIntegral step) ap nullPtr 0 nullPtr nullPtr nullPtr nullFunPtr nullFunPtr
+        withArpack g $ \ap -> do
+            e <- c_igraph_community_leading_eigenvector gp nullPtr nullPtr
+                                                        membership'
+                                                        (fromIntegral step) ap
+                                                        nullPtr 0 nullPtr
+                                                        nullPtr nullPtr
+                                                        nullFunPtr nullFunPtr
+            unless (e == 0) $ error "error"
         memberList <- vectorToList membership
         return.fromMembership g $ memberList
 
