@@ -5,7 +5,7 @@ module Data.IGraph.Internal where
 import qualified Data.HashMap.Strict as Map
 import qualified Data.HashSet as Set
 import qualified Data.Foldable as F
-import qualified Data.Map as M
+import qualified Data.Vector.Unboxed as V
 
 import Control.Monad
 import Data.List as L
@@ -76,19 +76,19 @@ getVertexIds gp = do
 
 subgraphFromPtr :: Graph d a -> GraphPtr -> IO (Graph d a)
 subgraphFromPtr g@(G _) gp' = do
-  Just is <- getVertexIds gp'
-  [l1,l2] <- vectorPtrToList =<< newVectorPtr' =<< c_igraph_edges gp'
-  let lookupM = M.fromList $ zip [0..] (map round is)
-      orgId :: Int -> Int
-      orgId i = case M.lookup i lookupM of
-        Just o -> o
-        _      -> error $ "subgraphFromPtr: Invalid ID " ++ show i
-      getNodes = map (idToNode'' g . orgId . round)
-      ls = zip (getNodes l1) (getNodes l2)
-      -- final graph without weights
-      subg@(G sg) = fromListWithCtxt g ls
-      -- set correct weights
-      wes' = [ setWeight (toEdge a b) w
+    Just oriIds <- getVertexIds gp'
+    from <- newVector 0
+    to <- newVector 0
+    _ <- withVector from $ \vp1 -> withVector to $ \vp2 ->
+        c_igraph_edges gp' vp1 vp2
+    l1 <- vectorToList from
+    l2 <- vectorToList to
+    let idMap = V.fromList . map truncate $ oriIds
+        getNodes = map (idToNode'' g . (idMap V.!) . truncate)
+        -- final graph without weights
+        subg@(G sg) = fromListWithCtxt g $ zip (getNodes l1) (getNodes l2)
+        -- set correct weights
+        wes' = [ setWeight (toEdge a b) w
              | e <- intersectBy (eqOnEdgeNodes g)
                                 (edges g)
                                 (edges subg)
@@ -96,19 +96,18 @@ subgraphFromPtr g@(G _) gp' = do
                    b = edgeTo e
                    w = fromMaybe 0 (edgeWeight e)
              ]
-      subgWithWeights = G sg{ graphEdges = Set.fromList wes' }
-  return $
-    if isWeighted g
-       then subgWithWeights
-       else subg
- where
-  fromListWithCtxt :: Graph d a -> [(a,a)] -> Graph d a
-  fromListWithCtxt (G _) = fromList
+        subgWithWeights = G sg{ graphEdges = Set.fromList wes' }
+    return $ if isWeighted g
+                then subgWithWeights
+                else subg
+  where
+    fromListWithCtxt :: Graph d a -> [(a,a)] -> Graph d a
+    fromListWithCtxt (G _) = fromList
 
-  eqOnEdgeNodes :: Eq a => Graph d a -> Edge d a -> Edge d a -> Bool
-  eqOnEdgeNodes (G _) e1 e2 =
-    (==) (edgeFrom e1, edgeTo e1)
-         (edgeFrom e2, edgeTo e2)
+    eqOnEdgeNodes :: Eq a => Graph d a -> Edge d a -> Edge d a -> Bool
+    eqOnEdgeNodes (G _) e1 e2 =
+      (==) (edgeFrom e1, edgeTo e1)
+      (edgeFrom e2, edgeTo e2)
 
 foreign import ccall "igraphhaskell_initialize"
   c_igraphhaskell_initialize :: IO CInt
@@ -172,7 +171,7 @@ withOptionalWeights g@(G _) io = do
        Just ws -> listToVector ws >>= flip withVector io
 
 foreign import ccall "edges"
-  c_igraph_edges :: GraphPtr -> IO VectorPtrPtr
+  c_igraph_edges :: GraphPtr -> VectorPtr -> VectorPtr -> IO CInt
 
 --------------------------------------------------------------------------------
 -- (orphan) graph instances
@@ -238,8 +237,8 @@ withVs :: VertexSelector a -> Graph d a -> (VsPtr -> IO res) -> IO res
 withVs vs g f = do
   fvs <- newVs
   -- bind to C vertex selector pointer
-  _e <- withVs' fvs $ \vsp ->
-    case vs of
+  withVs' fvs $ \vsp -> do
+    e <- case vs of
          VsAll      -> c_igraph_vs_all    vsp
          VsNone     -> c_igraph_vs_none   vsp
          VsAdj    a -> c_igraph_vs_adj    vsp (ident a) (fromIntegral $ fromEnum Out)
@@ -248,8 +247,8 @@ withVs vs g f = do
          VsList   l -> do
            v <- listToVector (map ident l)
            withVector v $ c_igraph_vs_vector vsp
-  --fvs <- vs (nodeToId' g)
-  withVs' fvs f
+    unless (e == 0) $ error "error"
+    f vsp
  where
   ident a = fromIntegral (nodeToId'' g a) :: CInt
 

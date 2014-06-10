@@ -43,14 +43,14 @@ foreign import ccall "igraph_eigenvector_centrality"
 
 -- | 16. K-Cores
 -- | 16.1. igraph_coreness — Finding the coreness of the vertices in a network.
-kCore :: Graph d a -> Int -> [[a]]
+kCore :: (Ord a, Show a) => Graph d a -> Int -> [[a]]
 kCore g k = unsafePerformIO $ withGraph g $ \gp -> do
     v <- newVector 0
     withVector v $ \vp -> do
         e <- c_igraph_coreness gp vp (getNeiMode g)
         unless (e == 0) $ error "error"
     lst <- vectorToList v
-    let vs = fst.unzip.filter ((>=(fromIntegral k)).snd) $ zip (nodes g) lst
+    let vs = fst.unzip.filter ((>= fromIntegral k).snd) $ zip (nodes g) lst
         g' = inducedSubgraph g (VsList vs) CreateFromScratch
         cs = decompose g' Weak (-1) 1
     return $ map nodes cs

@@ -138,6 +138,7 @@ void c_arpack_destroy(igraph_arpack_options_t* arpack)
  *
  */
 
+/* Old
 igraph_vector_ptr_t* edges(const igraph_t *graph)
 {
     igraph_vector_ptr_t* res = (igraph_vector_ptr_t*) malloc(sizeof(igraph_vector_ptr_t));
@@ -145,6 +146,27 @@ igraph_vector_ptr_t* edges(const igraph_t *graph)
     igraph_vector_ptr_set(res, 0, (void*)&graph->from);
     igraph_vector_ptr_set(res, 1, (void*)&graph->to);
     return res;
+}
+*/
+
+int edges(const igraph_t *graph, igraph_vector_t *vs_from, igraph_vector_t *vs_to) {
+    igraph_eit_t it;
+      
+    IGRAPH_CHECK(igraph_eit_create(graph, igraph_ess_all(IGRAPH_EDGEORDER_FROM), &it));
+    IGRAPH_FINALLY(igraph_eit_destroy, &it);
+
+    while (!IGRAPH_EIT_END(it)) {
+        igraph_integer_t from, to;
+        int ret;
+        igraph_edge(graph, IGRAPH_EIT_GET(it), &from, &to);
+        igraph_vector_push_back(vs_from, (long int) from);
+        igraph_vector_push_back(vs_to, (long int) to);
+        IGRAPH_EIT_NEXT(it);
+    }
+
+    igraph_eit_destroy(&it);
+    IGRAPH_FINALLY_CLEAN(1);
+    return 0;
 }
 
 /*******************************************************************************

@@ -887,12 +887,12 @@ inducedSubgraph g vs i = unsafePerformIO $
     withVs vs g $ \vsp ->
     withGraph (emptyWithCtxt g) $ \gp' -> do
       setVertexIds gp
-      _e <- c_igraph_induced_subcomponent
-              gp
-              gp'
-              vsp
-              (fromIntegral $ fromEnum i)
+      e <- c_igraph_induced_subcomponent gp gp' vsp (fromIntegral.fromEnum $ i)
+      unless (e == 0) $ error "error"
       subgraphFromPtr g gp'
+
+foreign import ccall "igraph_vcount"
+    c_igraph_vcount :: GraphPtr -> IO CInt
   
 foreign import ccall "subgraph_edges"
   c_igraph_subgraph_edges
