@@ -43,6 +43,7 @@ Library
   Exposed-modules:
       Data.IGraph
     , Data.IGraph.Structure
+    , Data.IGraph.Cliques
     , Data.IGraph.Community
     , Data.IGraph.Layout
     , Data.IGraph.Parser

@@ -151,9 +151,6 @@ module Data.IGraph
     -- ** 13\.17 Maximum cardinality search, graph decomposition, chordal graphs
   , maximumCardinalitySearch
   , isChordal
-
-    -- ** 15\.1 Cliques
-  , maximalCliques
   ) where
 
 import Data.IGraph.Internal
@@ -2867,21 +2864,3 @@ isChordal g@(G _) = unsafePerformIO $ alloca $ \bp -> do
 -- 13.21 Other Operations
 
 --------------------------------------------------------------------------------
--- 15.1 Cliques
-
-foreign import ccall "igraph_maximal_cliques"
-    c_igraph_maximal_cliques :: GraphPtr
-                             -> VectorPtrPtr
-                             -> CInt
-                             -> CInt
-                             -> IO CInt
-
-maximalCliques :: Graph d a -> (Int, Int) -> [[a]]
-maximalCliques g (min', max') = unsafePerformIO $ do
-    vp <- newVectorPtr 0
-    e <- withGraph g $ \gp -> 
-         withVectorPtr vp $ \vpp -> 
-         c_igraph_maximal_cliques gp vpp (fromIntegral min') (fromIntegral max')
-    unless (e == 0) $ error "maximalCliques: error occurs, aborted!"
-
-    vectorPtrToVertices g vp
