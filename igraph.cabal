@@ -21,6 +21,7 @@ Library
     -Wall
   Build-depends:
     base >= 4.3.1.0 && < 5,
+    bytestring,
     containers,
     unordered-containers,
     hashable,

@@ -15,18 +15,27 @@ import System.IO.Unsafe (unsafePerformIO)
 import Control.Monad
 
 helper :: Monad m => Graph d a -> [[Double]] -> m [(a, (Double, Double))]
-{-# INLINE helper #-}
 helper g = return.map ( \(i,[x,y]) -> (idToNode'' g i, (x,y)) ).zip [0..] 
+{-# INLINE helper #-}
 
 -- | 1. 2D layout generators
 --
 -- | 1.8. igraph_layout_fruchterman_reingold — Places the vertices on a plane according to the Fruchterman-Reingold algorithm.
 layoutFruchtermanReingold :: Graph d a
-                          -> Int
-                          -> Double
-                          -> Double
-                          -> Double
-                          -> Double
+                          -> Int     -- ^ The number of iterations to do. A
+                                     -- reasonable default value is 500
+                          -> Double  -- ^ The maximum distance to move a vertex
+                                     -- in an iteratoin. A reasonable default is
+                                     -- the number of vertices
+                          -> Double  -- ^ The area parameter of the algorithm. A
+                                     -- reasonable default is the square of the
+                                     -- number of vertices
+                          -> Double  -- ^ the cooling exponent of the simulated
+                                     -- annealing. A reasonable default is 1.5
+                          -> Double  -- ^ Determins the radius at which vertex-
+                                     -- vertex repulsion cancels out attraction
+                                     -- of adjacent vertices. A reasonable default
+                                     -- is area times the number of vertices
                           -> [(a, (Double, Double))]
 layoutFruchtermanReingold g niter maxdelta area coolexp repulserad =
     unsafePerformIO $ withGraph g $ \gp -> do

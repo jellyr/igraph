@@ -1,18 +1,24 @@
 module Data.IGraph.Parser where
 
 import qualified Data.Vector as V
+import qualified Data.ByteString.Char8 as B
 import Data.IGraph
 
-readMatrix :: E d String => FilePath -> Bool -> IO (Graph d String)
-readMatrix fl header = do 
-    content <- readFile fl
-    let (h:m) | header = map words.lines $ content
-              | otherwise = map show [1..(length.lines) content] : (map words.lines) content
+readMatrix :: E d B.ByteString => FilePath -> Bool -> IO (Graph d B.ByteString)
+readMatrix fl header = B.readFile fl >>= return . flip fromMatrix header
+
+fromMatrix :: E d B.ByteString => B.ByteString -> Bool -> Graph d B.ByteString
+fromMatrix s header = 
+    let xs = map B.words . B.lines $ s
+        (h:m) = if header
+                   then xs
+                   else map (B.pack . show) [1..length xs] : xs
         nm = V.fromList h
-        adjMatrix = (map.map) read m :: [[Double]]
-    return.fromList $ getEdges nm adjMatrix
+        adjMatrix = (map.map) (read . B.unpack) m :: [[Double]]
+    in fromList $ getEdges nm adjMatrix
   where
     getEdges name m = map f.filter ((/=0).fst).zip (concat m) $ [(i,j) | i <- [0..l-1], j <- [0..l-1]]
       where
         f (_, (i,j)) = (name V.! i, name V.! j)
         l = V.length name
+{-# INLINE fromMatrix #-}
