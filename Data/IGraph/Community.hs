@@ -78,18 +78,22 @@ foreign import ccall "igraph_community_optimal_modularity"
 --
 -- | 2.1. igraph_community_spinglass — Community detection based on statistical mechanics
 communitySpinglass :: Graph d a
-                   -> Double
-                   -> Double
-                   -> Double
-                   -> Double
+                   -> Int     -- ^ number of spins
+                   -> Double  -- ^ The temperature at the start. Default: 1.0
+                   -> Double  -- ^ Stop temperature. Default: 0.01
+                   -> Double  -- ^ The cooling factor for the simulated annealing.
+                              -- Default: 0.99
+                   -> Double  -- ^ Gamma parameter, which defines the weight of
+                              -- the missing and existing links in the quality
+                              -- function for the clustering. Default: 1.0
                    -> [[a]]
-communitySpinglass g starttemp stoptemp coolfact gamma = unsafePerformIO $
+communitySpinglass g spins starttemp stoptemp coolfact gamma = unsafePerformIO $
     withGraph g $ \gp ->
     withOptionalWeights g $ \wp -> do
         membership <- newVector 0
         withVector membership $ \membership' -> do
             e <- c_igraph_community_spinglass gp wp nullPtr nullPtr membership'
-                                              nullPtr spins parupdate
+                                              nullPtr (fromIntegral spins) parupdate
                                               (realToFrac starttemp)
                                               (realToFrac stoptemp)
                                               (realToFrac coolfact) updateRule
@@ -99,7 +103,6 @@ communitySpinglass g starttemp stoptemp coolfact gamma = unsafePerformIO $
         memberList <- vectorToList membership
         return.fromMembership g $ memberList
   where
-    spins = 25
     parupdate = False
     gamma_minus = 0
     implementation = fromIntegral.fromEnum $ SpincommImpOrig
