@@ -3,11 +3,13 @@
 --
 
 module Data.IGraph.Structure
-    ( eigenvectorCentrality
+    ( closeness
+    , betweenness
+    , eigenvectorCentrality
     , kCore
     ) where
 
-import Data.IGraph hiding (eigenvectorCentrality)
+import Data.IGraph hiding (eigenvectorCentrality, closeness, betweenness)
 import Data.IGraph.Internal
 import Data.IGraph.Types
 import Foreign hiding (unsafePerformIO)
@@ -16,8 +18,66 @@ import System.IO.Unsafe (unsafePerformIO)
 import Control.Monad (unless)
 
 -- | 6. Centrality Measures
+-- | 6.1. igraph_closeness — Closeness centrality calculations for some vertices.
+--
+-- The closeness centrality of a vertex measures how easily other vertices can
+-- be reached from it (or the other way: how easily it can be reached from the
+-- other vertices). It is defined as the number of the number of vertices minus
+-- one divided by the sum of the lengths of all geodesics from/to the given
+-- vertex.
+--
+-- If the graph is not connected, and there is no path between two vertices, the
+-- number of vertices is used instead the length of the geodesic. This is always
+-- longer than the longest possible geodesic.
+closeness :: Ord a => Graph d a -> VertexSelector a -> [(a,Double)]
+closeness g vs = unsafePerformIO $ do
+  v  <- newVector 0
+  _e <- withGraph g $ \gp ->
+        withOptionalWeights g $ \wp ->
+        withVs vs g $ \vsp ->
+        withVector v $ \vp ->
+          c_igraph_closeness
+            gp
+            vp
+            vsp
+            (getNeiMode g)
+            wp
+  scores <- vectorToList v
+  return $ zip (selectedVertices g vs) scores
+
+foreign import ccall "closeness"
+  c_igraph_closeness :: GraphPtr -> VectorPtr -> VsPtr -> CInt -> VectorPtr -> IO CInt
+
+-- | 6.2. igraph_betweenness — Betweenness centrality of some vertices.
+--
+-- The betweenness centrality of a vertex is the number of geodesics going
+-- through it. If there are more than one geodesic between two vertices, the
+-- value of these geodesics are weighted by one over the number of geodesics.
+betweenness :: Graph d a -> VertexSelector a -> [(a, Double)]
+betweenness g vs = unsafePerformIO $ do
+  v  <- newVector 0
+  _e <- withGraph g $ \gp ->
+        withOptionalWeights g $ \wp ->
+        withVs vs g $ \vsp ->
+        withVector v $ \vp ->
+          c_igraph_betweenness
+            gp
+            vp
+            vsp
+            True -- should be OK for all graphs
+            wp
+            True -- should be OK for all graphs
+  scores <- vectorToList v
+  return $ zip (selectedVertices g vs) scores
+
+foreign import ccall "betweenness"
+  c_igraph_betweenness :: GraphPtr -> VectorPtr -> VsPtr -> Bool -> VectorPtr -> Bool -> IO CInt
+
 -- | 6.13. igraph_eigenvector_centrality — Eigenvector centrality of the vertices
-eigenvectorCentrality :: Graph d a -> Bool -> (Double, [(a, Double)])
+eigenvectorCentrality :: Graph d a
+                      -> Bool  -- ^ if True, the values will be scaled such that
+                               -- the largest value is 1
+                      -> (Double, [(a, Double)])
 eigenvectorCentrality g s = unsafePerformIO $ alloca $ \dp -> do
     v <- newVector 0
     e <- withGraph g $ \gp ->
@@ -30,7 +90,6 @@ eigenvectorCentrality g s = unsafePerformIO $ alloca $ \dp -> do
     lst <- vectorToList v
     return (realToFrac res, zip (nodes g) lst)
 
-
 foreign import ccall "igraph_eigenvector_centrality"
     c_igraph_eigenvector_centrality :: GraphPtr
                                     -> VectorPtr
@@ -40,6 +99,7 @@ foreign import ccall "igraph_eigenvector_centrality"
                                     -> VectorPtr
                                     -> ArpackPtr
                                     -> IO CInt
+
 
 -- | 16. K-Cores
 -- | 16.1. igraph_coreness — Finding the coreness of the vertices in a network.
